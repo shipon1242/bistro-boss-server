@@ -27,7 +27,7 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
         const menuCollection = client.db("BistroDb").collection("menu");
         const userCollection = client.db("BistroDb").collection("users");
         const reviewsCollection = client.db("BistroDb").collection("reviews");
@@ -154,6 +154,14 @@ async function run() {
             const result = await userCollection.deleteOne(query)
             res.send(result)
         })
+        // popular section data
+
+        app.get('/popular-section/:category', async (req, res) => {
+            const category = req.params.category;
+            const query = { category: category };
+            const result = await menuCollection.find(query).toArray()
+            res.send(result)
+        })
 
         // menu related api
         app.get('/menu', async (req, res) => {
@@ -260,7 +268,7 @@ async function run() {
 
         })
         // stats or analytics
-        app.get('/admin-stats',verifyToken,verifyAdmin,  async (req, res) => {
+        app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
             const users = await userCollection.estimatedDocumentCount()
             const menuItems = await menuCollection.estimatedDocumentCount()
             const orders = await paymentCollection.estimatedDocumentCount()
@@ -278,7 +286,7 @@ async function run() {
             ]).toArray()
 
             const revenue = result.length > 0 ? result[0].totalRevenue : 0
-           
+
             res.send({
                 users, menuItems, orders, revenue
             })
@@ -286,74 +294,74 @@ async function run() {
         })
         // sold category quantity and revenue 
 
-        app.get('/category-summary',verifyToken,verifyAdmin,async(req,res)=>{
+        app.get('/category-summary', verifyToken, verifyAdmin, async (req, res) => {
 
             const result = await paymentCollection.aggregate([{
-                $lookup:{
-                    from:'menu',
-                    localField:'menuItemIds',// Field in paymentCollection
-                    foreignField:'_id',// Field in menuCollection
-                    as:'menuItems'// Result array from the lookup
+                $lookup: {
+                    from: 'menu',
+                    localField: 'menuItemIds',// Field in paymentCollection
+                    foreignField: '_id',// Field in menuCollection
+                    as: 'menuItems'// Result array from the lookup
                 }
             },
             {
-                $unwind:'$menuItems'
+                $unwind: '$menuItems'
             },
             {
-                $group:{
-                    _id:'$menuItems.category',
-                    totalQuantity:{$sum:1},// Count the number of items in each category
-                    totalPrice:{$sum:'$menuItems.price'}// Sum the price of the items in each category
+                $group: {
+                    _id: '$menuItems.category',
+                    totalQuantity: { $sum: 1 },// Count the number of items in each category
+                    totalPrice: { $sum: '$menuItems.price' }// Sum the price of the items in each category
                 }
-            },{
-                $project:{
-                    _id:0,
-                    category:"$_id",
-                    totalQuantity:1,                   
-                    revenue:'$totalPrice'
-                    
+            }, {
+                $project: {
+                    _id: 0,
+                    category: "$_id",
+                    totalQuantity: 1,
+                    revenue: '$totalPrice'
+
                 }
             }
-                
+
             ]).toArray()
 
-         res.send(result)
+            res.send(result)
         })
 
         // users home calculate price and order count
-        app.get('/user-summary/:email',async(req,res)=>{
-            const userEmail =req.params.email;
-            const result =await paymentCollection.aggregate([
+        app.get('/user-summary/:email', async (req, res) => {
+            const userEmail = req.params.email;
+            const result = await paymentCollection.aggregate([
                 {
-                  $match:{email:userEmail}
+                    $match: { email: userEmail }
                 },
-                
+
                 {
-                    $group:{
-                        _id:'$email',
-                        totalPrice:{$sum:'$price'},
-                        order:{$sum:1},
-                        itemCount:{
-                            $sum:{
-                                $cond:{
-                                    if:{$isArray:'$cartIds'},
-                                    then:{$size:'$cartIds'},
-                                    else:0
+                    $group: {
+                        _id: '$email',
+                        totalPrice: { $sum: '$price' },
+                        order: { $sum: 1 },
+                        itemCount: {
+                            $sum: {
+                                $cond: {
+                                    if: { $isArray: '$cartIds' },
+                                    then: { $size: '$cartIds' },
+                                    else: 0
                                 }
                             }
                         },
-                        payment:{$sum:1}
+                        payment: { $sum: 1 }
                     }
 
                 },
                 {
-                    $project:{
-                        _id:0,
-                        email:'$_id',
-                        totalPrice:1,
-                        order:1,
-                        purchased:'$itemCount',
-                        payment:1
+                    $project: {
+                        _id: 0,
+                        email: '$_id',
+                        totalPrice: 1,
+                        order: 1,
+                        purchased: '$itemCount',
+                        payment: 1
 
                     }
                 }
@@ -368,8 +376,8 @@ async function run() {
 
 
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
